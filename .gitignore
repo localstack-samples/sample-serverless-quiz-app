@@ -21,6 +21,8 @@ __pycache__
 # LocalStack
 
 volume/
-.idea
+.idea/
+.vscode/
 
 cdk.context.json
+app-state.zip*

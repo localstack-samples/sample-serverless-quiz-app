@@ -22,7 +22,12 @@ load-state:     ## Load the application state from a local file
 clean:          ## Clean up any temporary files
 	rm *.zip
 
-hot-reload:
+hot-reload:     ## Reconfigure the Lambda function to enable hot reloading
 	awslocal lambda update-function-code --function-name ScoringFunction --s3-bucket hot-reload --s3-key "$$(pwd)/lambdas/scoring"
+
+start-debug:    ## Start LocalStack with Lambda debug mode enabled
+	DEBUG=1 LOCALSTACK_LAMBDA_DEBUG_MODE=1 \
+		LOCALSTACK_LAMBDA_DEBUG_MODE_CONFIG_PATH=/tmp/debug_config.yml \
+        localstack start --volume $$(pwd)/etc/debug-config.yml:/tmp/debug_config.yml
 
 .PHONY: usage deploy web save-state load-state clean
