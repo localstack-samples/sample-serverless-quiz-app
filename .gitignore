@@ -24,3 +24,6 @@ volume/
 .idea
 
 cdk.context.json
+
+# Claude Code local-only settings
+.claude/settings.local.json

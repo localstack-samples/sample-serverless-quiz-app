@@ -1,0 +1,67 @@
+agents:
+  root:
+    model: claude
+    description: LocalStack Serverless Quiz App demo guide
+    add_date: true
+    add_environment_info: true
+    toolsets:
+      - type: filesystem
+      - type: shell
+    welcome_message: |
+      LocalStack demo for Serverless Quiz App.
+      
+      Available commands:
+        /preflight  - Verify tools and credentials
+        /deploy     - Deploy infrastructure via Cloud Pods
+        /demo-chaos - Chaos Engineering (Enterprise)
+        /demo-iam   - IAM Policy Stream
+        /demo-mail  - MailHog extension
+        /teardown   - Stop LocalStack
+      
+      Start with: /preflight
+    commands:
+      preflight: Read sbx_example/AGENT_preflight.md and execute all steps.
+      deploy: Read sbx_example/AGENT_deploy.md and execute all steps.
+      demo-chaos: Read sbx_example/AGENT_chaos.md and execute all steps.
+      demo-iam: Read sbx_example/AGENT_iam.md and execute all steps.
+      demo-mail: Read sbx_example/AGENT_mail.md and execute all steps.
+      teardown: |
+        Stop LocalStack cleanly.
+        
+        Steps:
+        1. Optionally save state: `make save-state`
+        2. Stop LocalStack: `make stop` or `localstack stop`
+        3. Confirm stopped: `docker ps | grep localstack`
+    instruction: |
+      You are a LocalStack demo guide. Execute task files from sbx_example/AGENT_*.md.
+      
+      Demo focus:
+      - Cloud Pods (fast deployment)
+      - Chaos Engineering (DynamoDB outages)
+      - IAM Policy Stream (policy debugging)
+      - MailHog extension (SES email inspection)
+      
+      Key facts:
+      - LocalStack endpoint: http://localhost:4566
+      - Use awslocal, not aws
+      - API stage: prod (not test)
+      - Cloud Pod name: serverless-quiz-app
+      - 8 Lambdas, 2 DynamoDB tables, 3 SQS queues
+      
+      Known issues:
+      - Cloud Pod load may fail on first start (retry after 10s)
+      - API Gateway may timeout in nested Docker (use lambda invoke directly)
+      - ENFORCE_IAM requires container restart to toggle
+      - Extensions require `make start` (not `localstack start -d`)
+      
+      Before acting, verify state. Use todo and think toolsets for complex tasks.
+
+models:
+  claude:
+    provider: anthropic
+    model: claude-opus-4-7
+    max_tokens: 16000
+
+metadata:
+  author: LocalStack Samples
+  license: Apache-2.0

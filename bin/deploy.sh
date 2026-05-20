@@ -149,7 +149,7 @@ for LAMBDA_INFO in "${LAMBDAS[@]}"; do
       --handler handler.lambda_handler \
       --zip-file fileb://${ZIP_FILE} \
       --role arn:aws:iam::000000000000:role/${ROLE_NAME} \
-      --timeout 30 \
+      --timeout 180 \
       --output text >/dev/null
 done
 log "Lambda functions deployed successfully."
