@@ -23,6 +23,12 @@ __pycache__
 volume/
 .idea
 
+# lstk runtime state (log + keyring lock). Per-project lstk config
+# (.lstk/config.toml) IS checked in; everything else under .lstk/ is
+# machine-local.
+.lstk/*.log
+.lstk/*.lock
+
 cdk.context.json
 
 # Claude Code local-only settings

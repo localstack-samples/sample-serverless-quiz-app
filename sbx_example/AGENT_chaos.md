@@ -33,10 +33,12 @@ confirm** they see the two panes and wait for confirmation.
 
 1. Verify stack is deployed (CloudFront distribution and QuizAPI exist)
 
-2. Install chaos SDK if missing:
+2. Confirm the chaos SDK is importable. Preflight installs
+   `localstack-sdk-python` into `$HOME/.venv` via
+   `tests/requirements-dev.txt`, so this should already pass:
 ```bash
-python3 -c "import localstack.sdk.chaos" 2>/dev/null || \
-  /opt/localstack-venv/bin/pip install localstack-sdk-python
+$HOME/.venv/bin/python -c "import localstack.sdk.chaos" || \
+  { echo "Re-run sbx_example/preflight.sh to install test deps."; exit 1; }
 ```
 
 3. Run automated chaos test:
@@ -47,9 +49,10 @@ pytest tests/test_outage.py -v
 4. Point user to Chaos Engineering dashboard:
 https://app.localstack.cloud/chaos-engineering
 
-5. If test times out (nested-Docker sandbox issue), demonstrate chaos primitive directly:
+5. If for any reason the pytest suite is unhappy, exercise the chaos
+   primitive directly:
 ```bash
-python3 -c "from localstack.sdk.chaos import ChaosClient; \
+$HOME/.venv/bin/python -c "from localstack.sdk.chaos import ChaosClient; \
   from localstack.sdk.models import FaultRule; \
   c=ChaosClient(); \
   c.set_fault_rules([FaultRule(region='us-east-1',service='dynamodb')]); \

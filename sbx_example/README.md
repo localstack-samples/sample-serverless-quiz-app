@@ -19,6 +19,11 @@ watch every command and every LocalStack log line live.
   - `op read "op://Dev/anthropic/token"  | sbx secret set -g anthropic`
 - A LocalStack auth token: https://app.localstack.cloud/workspace/auth-token
 - Two terminal windows, one to show sbx commands and the other to interact with Claude
+
+Inside the sandbox the agent uses [`lstk`](https://github.com/localstack/lstk)
+(the new Go-based LocalStack CLI v2, installed via `npm install -g @localstack/lstk`)
+plus AWS CLI v2. The old Python-based `localstack` CLI is no longer required —
+preflight installs everything from scratch.
 ## 1. Create the sandbox
 
 ```bash
@@ -106,7 +111,10 @@ The terminal at `http://127.0.0.1:7681` is a tmux session. Default prefix is
 ## Tearing down
 
 ```bash
-# Throw out the whole microvm and start over :-D
+# Inside the sandbox: stop LocalStack (optional, saves a bit on shutdown)
+sbx exec localstack-test lstk stop
+
+# On the host: throw out the whole microvm and start over :-D
 sbx rm localstack-test
 ```
 
@@ -131,11 +139,14 @@ Override the log path or output cap via env vars: `CLAUDE_DEMO_LOG`,
   After cloning, the first `sbx exec localstack-test claude …` invocation
   wires them up. If you started Claude before `.claude/settings.json` existed,
   exit and re-run.
-- **Bottom pane stuck on "waiting for localstack-main"** — the container
-  hasn't started yet. It comes up during deploy (via `make start`).
-- **`localstack pod load` says "permission denied"** — known, non-fatal. The
-  pod actually loads; the warning is from a snapshot-save step. Verify with
-  `awslocal lambda list-functions`.
+- **Bottom pane stuck on "waiting for localstack-aws"** — the container
+  hasn't started yet. It comes up during deploy (via `make start`, which
+  runs `lstk start --non-interactive`).
+- **`lstk aws` fails with "connection refused" inside a sandbox** — the
+  sandbox HTTPS proxy is intercepting the request. Preflight appends
+  `localhost.localstack.cloud,.localstack.cloud` to `NO_PROXY` in
+  `/etc/sandbox-persistent.sh` to fix this. Source the file or restart the
+  shell after running preflight.
 
 ## Reference
 

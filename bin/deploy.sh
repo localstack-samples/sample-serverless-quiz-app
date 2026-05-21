@@ -5,6 +5,19 @@ set -o pipefail
 
 AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL:-"http://localhost:4566"}
 
+# Detect host architecture so we create Lambda functions with a matching
+# runtime image. If the host is aarch64/arm64 (Apple Silicon, ARM sandboxes)
+# but the function is created with the default x86_64 architecture, the
+# Lambda runtime container will fail with "exec format error" — every
+# invocation then hangs for ~90s and returns HTTP 502.
+HOST_ARCH=$(uname -m)
+case "$HOST_ARCH" in
+    aarch64|arm64) LAMBDA_ARCH="arm64" ;;
+    x86_64|amd64)  LAMBDA_ARCH="x86_64" ;;
+    *) echo "Unsupported host arch: $HOST_ARCH" >&2; exit 1 ;;
+esac
+export LAMBDA_ARCH
+
 # Colors for logging
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -142,10 +155,11 @@ LAMBDAS=(
 for LAMBDA_INFO in "${LAMBDAS[@]}"; do
   read FUNCTION_NAME ZIP_FILE ROLE_NAME <<< "$LAMBDA_INFO"
 
-  log "Creating Lambda function $FUNCTION_NAME..."
+  log "Creating Lambda function $FUNCTION_NAME (arch=$LAMBDA_ARCH)..."
   awslocal lambda create-function \
       --function-name ${FUNCTION_NAME} \
       --runtime python3.10 \
+      --architectures ${LAMBDA_ARCH} \
       --handler handler.lambda_handler \
       --zip-file fileb://${ZIP_FILE} \
       --role arn:aws:iam::000000000000:role/${ROLE_NAME} \

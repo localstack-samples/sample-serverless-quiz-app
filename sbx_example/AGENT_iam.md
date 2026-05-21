@@ -47,7 +47,7 @@ awslocal iam get-policy-version \
 
 4. Trigger violation:
 - Preferred: Submit quiz from CloudFront UI or POST to /submitquiz
-- Sandbox fallback (if API GW times out):
+- Direct invoke (also fine):
 ```bash
 awslocal lambda invoke --function-name SubmitQuizFunction \
   --payload '{"body":"{\"QuizID\":\"<id>\",\"Answers\":[0]}"}' \

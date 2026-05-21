@@ -61,17 +61,17 @@ tmux send-keys -t "$SESSION:demo.0" \
 
 # Bottom pane: wait for the LocalStack container, then follow its logs.
 # Wrapped in an outer `while true` so the pane resumes when the container is
-# restarted (e.g. `localstack stop && make start` during a demo) instead of
-# leaving a dead `docker logs` behind.
+# restarted (e.g. `lstk stop && make start` during a demo) instead of
+# leaving a dead `docker logs` behind. lstk names its container `localstack-aws`.
 tmux send-keys -t "$SESSION:demo.1" \
   "clear && printf '\033[1;36m%s\033[0m\n' '— LocalStack logs (live) —' && \
    while true; do \
-     while ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^localstack-main$'; do \
-       echo 'waiting for localstack-main container...'; sleep 2; \
+     while ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^localstack-aws$'; do \
+       echo 'waiting for localstack-aws container...'; sleep 2; \
      done; \
-     printf '\033[1;32m%s\033[0m\n' '— attached to localstack-main —'; \
-     docker logs -f localstack-main 2>&1; \
-     printf '\033[1;33m%s\033[0m\n' '— localstack-main exited; waiting for restart —'; \
+     printf '\033[1;32m%s\033[0m\n' '— attached to localstack-aws —'; \
+     docker logs -f localstack-aws 2>&1; \
+     printf '\033[1;33m%s\033[0m\n' '— localstack-aws exited; waiting for restart —'; \
      sleep 1; \
    done" C-m
 

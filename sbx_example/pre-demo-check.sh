@@ -43,7 +43,7 @@ check_env() {
 
 # 1. Tools check
 echo "[1/7] Checking required tools..."
-for tool in docker docker-agent localstack awslocal jq make pytest node tmux ttyd; do
+for tool in docker docker-agent lstk aws awslocal jq make pytest node tmux ttyd; do
   check_tool "$tool"
 done
 echo
@@ -64,9 +64,9 @@ else
   ((FAIL++))
 fi
 
-# Check if LocalStack container exists
-if docker ps -a --format '{{.Names}}' | grep -q '^localstack-main$'; then
-  if docker ps --format '{{.Names}}' | grep -q '^localstack-main$'; then
+# Check if LocalStack container exists (lstk names it `localstack-aws`).
+if docker ps -a --format '{{.Names}}' | grep -q '^localstack-aws$'; then
+  if docker ps --format '{{.Names}}' | grep -q '^localstack-aws$'; then
     echo -e "  ${GREEN}✓${NC} LocalStack container running"
     ((PASS++))
   else
@@ -143,32 +143,28 @@ if [ "${SKIP_WARMUP:-0}" = "1" ]; then
   echo -e "  ${YELLOW}⚠${NC} Skipped (SKIP_WARMUP=1)"
   ((WARN++))
 else
-  echo "  Starting LocalStack container..."
+  echo "  Starting LocalStack container (lstk start)..."
+  # `make start` runs `lstk start --non-interactive` which blocks until the
+  # gateway is healthy, so no separate `wait` step is needed.
   if make start >/dev/null 2>&1; then
-    echo "  Waiting for LocalStack to be ready (max 90s)..."
-    if localstack wait -t 90 >/dev/null 2>&1; then
-      # Check if extensions are installed
-      if docker logs localstack-main 2>&1 | grep -q "extension-mailhog"; then
-        echo -e "  ${GREEN}✓${NC} LocalStack ready with extensions"
-        ((PASS++))
-      else
-        echo -e "  ${YELLOW}⚠${NC} LocalStack ready but extensions may not be installed"
-        echo "    (Make sure you started with 'make start', not 'localstack start -d')"
-        ((WARN++))
-      fi
-      
-      # Quick health check
-      if curl -s --max-time 5 http://localhost:4566/_localstack/health >/dev/null 2>&1; then
-        RUNNING_SERVICES=$(curl -s --max-time 5 http://localhost:4566/_localstack/health 2>/dev/null | jq -r '.services | to_entries | map(select(.value=="running")) | length' 2>/dev/null || echo "0")
-        echo -e "  ${GREEN}✓${NC} Health endpoint accessible ($RUNNING_SERVICES services running)"
-        ((PASS++))
-      else
-        echo -e "  ${YELLOW}⚠${NC} Health endpoint not responding yet"
-        ((WARN++))
-      fi
+    # Check if extensions are installed (via .lstk/config.toml).
+    if docker logs localstack-aws 2>&1 | grep -q "extension-mailhog"; then
+      echo -e "  ${GREEN}✓${NC} LocalStack ready with extensions"
+      ((PASS++))
     else
-      echo -e "  ${RED}✗${NC} LocalStack failed to start in 90s"
-      ((FAIL++))
+      echo -e "  ${YELLOW}⚠${NC} LocalStack ready but extensions may still be installing"
+      echo "    (Give it ~30s for EXTENSION_AUTO_INSTALL to finish)"
+      ((WARN++))
+    fi
+
+    # Quick health check
+    if curl -s --max-time 5 http://localhost:4566/_localstack/health >/dev/null 2>&1; then
+      RUNNING_SERVICES=$(curl -s --max-time 5 http://localhost:4566/_localstack/health 2>/dev/null | jq -r '.services | to_entries | map(select(.value=="running")) | length' 2>/dev/null || echo "0")
+      echo -e "  ${GREEN}✓${NC} Health endpoint accessible ($RUNNING_SERVICES services running)"
+      ((PASS++))
+    else
+      echo -e "  ${YELLOW}⚠${NC} Health endpoint not responding yet"
+      ((WARN++))
     fi
   else
     echo -e "  ${RED}✗${NC} Failed to start LocalStack"
