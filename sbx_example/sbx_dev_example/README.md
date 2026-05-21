@@ -19,7 +19,7 @@ be the bug they ship in prod.
    first:
    ```bash
    bash sbx_example/preflight.sh
-   bash sbx_example/AGENT_deploy.md   # or just `make start && bin/deploy.sh`
+   make start && bin/deploy.sh
    ```
 2. The `awslocal` shim from preflight must be on PATH (it routes
    through `lstk aws`). The new agent will use `aws`, not `awslocal` —
@@ -56,14 +56,16 @@ notice anything off unless they `printenv | grep AWS_`.
 
 In a fresh sandbox shell:
 
+`$(pwd)` here put claude in the path that matches where the repo lives - it looks like it is your full host filesystem, but it's just a bindmount mount to the folder.
+
 ```bash
-sbx exec <sandbox-name> claude "Read sbx_example/sbx_dev_example/AGENT_TASK.md and execute it"
+sbx exec -it <sandbox name> -- claude --dangerously-skip-permissions "Read $(pwd)/sbx_example/sbx_dev_example/AGENT_TASK.md and execute it"
 ```
 
 Or, if running inside the sandbox already:
 
 ```bash
-claude "Read sbx_example/sbx_dev_example/AGENT_TASK.md and execute it"
+claude --dangerously-skip-permissions "Read sbx_example/sbx_dev_example/AGENT_TASK.md and execute it"
 ```
 
 The agent's task file (`AGENT_TASK.md`) is written in deliberately
