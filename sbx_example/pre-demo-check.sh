@@ -43,7 +43,7 @@ check_env() {
 
 # 1. Tools check
 echo "[1/7] Checking required tools..."
-for tool in docker docker-agent lstk aws awslocal jq make pytest node tmux ttyd; do
+for tool in docker docker-agent localstack aws awslocal jq make pytest tmux ttyd; do
   check_tool "$tool"
 done
 echo
@@ -64,9 +64,9 @@ else
   ((FAIL++))
 fi
 
-# Check if LocalStack container exists (lstk names it `localstack-aws`).
-if docker ps -a --format '{{.Names}}' | grep -q '^localstack-aws$'; then
-  if docker ps --format '{{.Names}}' | grep -q '^localstack-aws$'; then
+# Check if LocalStack container exists.
+if docker ps -a --format '{{.Names}}' | grep -q '^localstack-main$'; then
+  if docker ps --format '{{.Names}}' | grep -q '^localstack-main$'; then
     echo -e "  ${GREEN}✓${NC} LocalStack container running"
     ((PASS++))
   else
@@ -143,12 +143,10 @@ if [ "${SKIP_WARMUP:-0}" = "1" ]; then
   echo -e "  ${YELLOW}⚠${NC} Skipped (SKIP_WARMUP=1)"
   ((WARN++))
 else
-  echo "  Starting LocalStack container (lstk start)..."
-  # `make start` runs `lstk start --non-interactive` which blocks until the
-  # gateway is healthy, so no separate `wait` step is needed.
+  echo "  Starting LocalStack container (make start)..."
   if make start >/dev/null 2>&1; then
-    # Check if extensions are installed (via .lstk/config.toml).
-    if docker logs localstack-aws 2>&1 | grep -q "extension-mailhog"; then
+    # Check if extensions are installed (via EXTENSION_AUTO_INSTALL).
+    if docker logs localstack-main 2>&1 | grep -q "extension-mailhog"; then
       echo -e "  ${GREEN}✓${NC} LocalStack ready with extensions"
       ((PASS++))
     else

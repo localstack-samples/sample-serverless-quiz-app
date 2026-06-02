@@ -30,9 +30,9 @@ If port 7681 isn't reachable, ask the user to run on their host:
 `sbx ports <sandbox-name> --publish 7681:7681/tcp`. Then **ask the user to
 confirm** they see the two panes and wait for confirmation.
 
-1. Confirm the MailHog extension is reachable. The repo's `.lstk/config.toml`
-   sets `EXTENSION_AUTO_INSTALL`, so `make start` auto-installs it on first
-   boot. `lstk` does not (yet) have an `extensions` subcommand of its own.
+1. Confirm the MailHog extension is reachable. `make start` sets
+   `EXTENSION_AUTO_INSTALL=localstack-extension-mailhog`, so it auto-installs
+   on first boot.
 
 ```bash
 curl -s -o /dev/null -w "mailhog %{http_code}\n" http://mailhog.localhost.localstack.cloud:4566/
@@ -40,7 +40,7 @@ curl -s -o /dev/null -w "mailhog %{http_code}\n" http://mailhog.localhost.locals
 
 If this returns 500 or 404, the extension is still installing in the
 background — give it ~30s and retry. If it stays broken, restart with
-`lstk stop && make start`.
+`localstack stop && make start`.
 
 2. Get API Gateway endpoint:
 ```bash

@@ -29,8 +29,7 @@ agents:
         Stop LocalStack cleanly.
 
         Steps:
-        1. Optionally save state: `make save-state` (runs `lstk snapshot save`)
-        2. Stop LocalStack: `make stop` or `lstk stop`
+        1. Stop LocalStack: `make stop` or `localstack stop`
         3. Confirm stopped: `docker ps | grep localstack`
     instruction: |
       You are a LocalStack demo guide. Execute task files from sbx_example/AGENT_*.md.
@@ -51,7 +50,7 @@ agents:
       Known issues:
       - Cloud Pod load may fail on first start (retry after 10s)
       - ENFORCE_IAM requires container restart to toggle
-      - Extensions auto-install via `.lstk/config.toml`; let them settle ~30s
+      - Extensions auto-install via EXTENSION_AUTO_INSTALL in `make start`; let them settle ~30s
       - bin/deploy.sh auto-detects host arch and passes --architectures;
         if you ever override LAMBDA_ARCH manually, make sure it matches
         `uname -m` or lambdas will hang with "exec format error"

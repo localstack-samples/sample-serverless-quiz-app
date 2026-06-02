@@ -32,15 +32,8 @@ If port 7681 isn't reachable from the user's host browser, ask them to run on
 their host: `sbx ports <sandbox-name> --publish 7681:7681/tcp`. Then **ask
 the user to confirm** they see the two panes and wait for confirmation.
 
-1. Run the idempotent preflight script. Always run it at the start of a
-   session, regardless of what previous sessions did. It installs apt
-   packages, `lstk` (LocalStack CLI v2, via npm), AWS CLI v2, an `awslocal`
-   shim that proxies through `lstk aws`, and a small Python venv at
-   `$HOME/.venv` for test dependencies (boto3, pytest, requests,
-   localstack-sdk-python). It persists `$HOME/.venv/bin` on `PATH` and adds
-   `.localstack.cloud` to `NO_PROXY` via `/etc/sandbox-persistent.sh` — so
-   no venv activation is needed in later steps. See AGENT_preflight.md for
-   details.
+1. Run the idempotent preflight script (see `AGENT_preflight.md` and
+   https://v2.app.localstack.cloud/agents.md for what it sets up):
 
 ```bash
 bash sbx_example/preflight.sh
@@ -51,19 +44,17 @@ message to the user and stop — do not try to work around it.
 
 2. Bring up a clean LocalStack instance. `bin/deploy.sh` is NOT idempotent
    (it `set -e`s on the first `ResourceInUseException`), so any residual
-   state from previous runs will break it. Always wipe the volume before
-   deploying. `lstk` reads `.lstk/config.toml` in this repo, which sets
-   `EXTENSION_AUTO_INSTALL` to pull in `event-studio` and `mailhog`:
+   state from previous runs will break it. Always stop and restart before
+   deploying:
 
 ```bash
-lstk stop || true
-lstk volume clear --force || true
-make start            # runs `lstk start --non-interactive`; picks up .lstk/config.toml
+localstack stop || true
+make start
 ```
 
-`lstk start` blocks until the container is healthy on `:4566` — no separate
-wait step is needed. Extensions install in the background; they take an
-extra ~30s after the gateway is ready.
+`make start` runs `localstack start -d` then `localstack wait -t 60`,
+blocking until the container is healthy on `:4566`. Extensions install in
+the background; they take an extra ~30s after the gateway is ready.
 
 3. Deploy the app via the AWS CLI script — the canonical path per the
    repo's root `README.md` ("Option 1: AWS CLI Deployment (Recommended)"):
@@ -80,8 +71,7 @@ CloudFront URL: https://<id>.cloudfront.localhost.localstack.cloud
 API Gateway Endpoint: http://localhost:4566/_aws/execute-api/<id>/prod
 ```
 
-`bin/deploy.sh` uses `awslocal` for ~50 AWS calls. The `awslocal` shim
-installed by preflight proxies through `lstk aws`, which adds ~0.1s per call.
+`bin/deploy.sh` uses `awslocal` for ~50 AWS calls.
 
 The script auto-detects the host architecture (`uname -m`) and passes
 `--architectures arm64` (or `x86_64`) to every `create-function` call. This
@@ -108,16 +98,15 @@ awslocal dynamodb scan --table-name Quizzes --select COUNT --query 'Count' --out
 Expect 8 Lambdas, a `QuizAPI` ID, and 3 quizzes (post-seed). If quiz count
 is 0, seed probably failed — re-run `bash bin/seed.sh` once and re-check.
 
-5. Check the LocalStack extensions used by later demos:
+5. Check the MailHog extension used by later demos:
 
 ```bash
-curl -s -o /dev/null -w "event-studio %{http_code}\n" http://eventstudio.localhost.localstack.cloud:4566/
-curl -s -o /dev/null -w "mailhog      %{http_code}\n" http://mailhog.localhost.localstack.cloud:4566/
+curl -s -o /dev/null -w "mailhog %{http_code}\n" http://mailhog.localhost.localstack.cloud:4566/
 ```
 
-Both should return 200. If 500/404, the extensions may still be installing
+Should return 200. If 500/404, the extension may still be installing
 in the background (give it another 20s and retry) or the container missed
-the auto-install env var — restart with `lstk stop && make start`.
+the auto-install env var — restart with `localstack stop && make start`.
 
 6. Print the URLs the user needs:
 
@@ -127,5 +116,4 @@ the auto-install env var — restart with `lstk stop && make start`.
 - Resource Browser: https://app.localstack.cloud/inst/default/resources
 - Policy Stream: https://app.localstack.cloud/inst/default/policy-stream
 - Chaos Engineering: https://app.localstack.cloud/inst/default/chaos-engineering
-- Event Studio: http://eventstudio.localhost.localstack.cloud:4566/
 - MailHog: http://mailhog.localhost.localstack.cloud:4566/

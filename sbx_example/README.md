@@ -20,10 +20,10 @@ watch every command and every LocalStack log line live.
 - A LocalStack auth token: https://app.localstack.cloud/workspace/auth-token
 - Two terminal windows, one to show sbx commands and the other to interact with Claude
 
-Inside the sandbox the agent uses [`lstk`](https://github.com/localstack/lstk)
-(the new Go-based LocalStack CLI v2, installed via `npm install -g @localstack/lstk`)
-plus AWS CLI v2. The old Python-based `localstack` CLI is no longer required —
-preflight installs everything from scratch.
+Inside the sandbox the agent uses the `localstack` CLI (installed via pip into
+a virtualenv) plus AWS CLI v2 and `awslocal` (from `awscli-local`). The
+preflight script installs everything from scratch.
+
 ## 1. Create the sandbox
 
 ```bash
@@ -92,7 +92,6 @@ Open these in additional browser tabs while the demo runs:
 - Resource Browser — https://app.localstack.cloud/inst/default/resources
 - Policy Stream — https://app.localstack.cloud/inst/default/policy-stream
 - Chaos Engineering — https://app.localstack.cloud/inst/default/chaos-engineering
-- Event Studio (local) — http://eventstudio.localhost.localstack.cloud:4566/
 - MailHog (local) — http://mailhog.localhost.localstack.cloud:4566/
 
 ## Tmux navigation (inside the browser terminal)
@@ -112,7 +111,7 @@ The terminal at `http://127.0.0.1:7681` is a tmux session. Default prefix is
 
 ```bash
 # Inside the sandbox: stop LocalStack (optional, saves a bit on shutdown)
-sbx exec localstack-test lstk stop
+sbx exec localstack-test localstack stop
 
 # On the host: throw out the whole microvm and start over :-D
 sbx rm localstack-test
@@ -139,14 +138,9 @@ Override the log path or output cap via env vars: `CLAUDE_DEMO_LOG`,
   After cloning, the first `sbx exec localstack-test claude …` invocation
   wires them up. If you started Claude before `.claude/settings.json` existed,
   exit and re-run.
-- **Bottom pane stuck on "waiting for localstack-aws"** — the container
+- **Bottom pane stuck on "waiting for localstack-main"** — the container
   hasn't started yet. It comes up during deploy (via `make start`, which
-  runs `lstk start --non-interactive`).
-- **`lstk aws` fails with "connection refused" inside a sandbox** — the
-  sandbox HTTPS proxy is intercepting the request. Preflight appends
-  `localhost.localstack.cloud,.localstack.cloud` to `NO_PROXY` in
-  `/etc/sandbox-persistent.sh` to fix this. Source the file or restart the
-  shell after running preflight.
+  runs `localstack start -d`).
 
 ## Reference
 

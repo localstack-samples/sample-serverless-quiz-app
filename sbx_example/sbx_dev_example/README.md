@@ -21,9 +21,8 @@ be the bug they ship in prod.
    bash sbx_example/preflight.sh
    make start && bin/deploy.sh
    ```
-2. The `awslocal` shim from preflight must be on PATH (it routes
-   through `lstk aws`). The new agent will use `aws`, not `awslocal` —
-   the next step makes that work.
+2. The `awslocal` shim from preflight must be on PATH. The new agent will
+   use `aws`, not `awslocal` — the next step makes that work.
 
 ## Setup: make `aws` transparently hit LocalStack
 
@@ -70,7 +69,7 @@ claude --dangerously-skip-permissions "Read sbx_example/sbx_dev_example/AGENT_TA
 
 The agent's task file (`AGENT_TASK.md`) is written in deliberately
 plain "platform team handing this to a contractor" language. Nothing in
-it references LocalStack, `lstk`, `awslocal`, or `:4566`. The
+it references LocalStack, `awslocal`, or `:4566`. The
 `INFRASTRUCTURE.md` companion file is similarly sanitized.
 
 ## What good output looks like

@@ -8,22 +8,14 @@
 # What this does:
 #   1. Installs apt packages (jq, make, zip, unzip, curl, git, nodejs, npm,
 #      python3-venv).
-#   2. Installs lstk (LocalStack CLI v2) globally via npm.
-#   3. Installs AWS CLI v2 from the official binary (no Python).
-#   4. Writes an `awslocal` shim that proxies through `lstk aws` so the
-#      existing demo scripts (bin/deploy.sh, AGENT_*.md) keep working.
-#   5. Adds `.localstack.cloud` to NO_PROXY in /etc/sandbox-persistent.sh
-#      so `lstk aws` works inside sandboxes with an HTTPS proxy.
-#   6. Writes a `localstack` AWS profile so `lstk aws` finds it without
-#      having to run `lstk setup aws` interactively.
-#   7. Creates $HOME/.venv (a session-persistent virtualenv) for Python
-#      test dependencies only — boto3, pytest, requests, localstack-sdk-python
-#      (needed by tests/ and AGENT_chaos.md). The LocalStack CLI itself
-#      no longer lives in this venv.
-#   8. Adds $HOME/.venv/bin to PATH via /etc/sandbox-persistent.sh so every
-#      subsequent bash invocation finds `pytest` without needing
-#      `source .venv/bin/activate`.
-#   9. Reports LOCALSTACK_AUTH_TOKEN presence (does not write it — that's a
+#   2. Installs AWS CLI v2 from the official binary (no Python).
+#   3. Creates $HOME/.venv (a session-persistent virtualenv) for Python
+#      dependencies: localstack (CLI), awscli-local (awslocal shim), boto3,
+#      pytest, requests, localstack-sdk-python.
+#   4. Adds $HOME/.venv/bin to PATH via /etc/sandbox-persistent.sh so every
+#      subsequent bash invocation finds localstack, awslocal, pytest without
+#      needing `source .venv/bin/activate`.
+#   5. Reports LOCALSTACK_AUTH_TOKEN presence (does not write it — that's a
 #      user secret).
 
 set -euo pipefail
@@ -34,7 +26,7 @@ log() { printf '[preflight] %s\n' "$*"; }
 [ -r /etc/sandbox-persistent.sh ] && . /etc/sandbox-persistent.sh || true
 
 # ---- 1. apt packages -------------------------------------------------------
-APT_PKGS=(jq make zip unzip curl git python3 python3-venv python3-pip nodejs npm)
+APT_PKGS=(jq make zip unzip curl git python3 python3-venv python3-pip)
 MISSING_APT=()
 for pkg in "${APT_PKGS[@]}"; do
   dpkg -s "$pkg" >/dev/null 2>&1 || MISSING_APT+=("$pkg")
@@ -47,15 +39,7 @@ else
   log "apt packages already installed"
 fi
 
-# ---- 2. lstk (LocalStack CLI v2) ------------------------------------------
-if ! command -v lstk >/dev/null 2>&1; then
-  log "npm install -g @localstack/lstk"
-  sudo npm install -g --silent @localstack/lstk
-else
-  log "lstk already installed ($(lstk --version 2>&1))"
-fi
-
-# ---- 3. AWS CLI v2 (binary, no Python) ------------------------------------
+# ---- 2. AWS CLI v2 (binary, no Python) ------------------------------------
 if ! command -v aws >/dev/null 2>&1; then
   ARCH="$(uname -m)"
   case "$ARCH" in
@@ -73,34 +57,41 @@ else
   log "aws CLI already installed ($(aws --version 2>&1))"
 fi
 
-# ---- 4. awslocal shim (proxies through `lstk aws`) ------------------------
-AWSLOCAL=/usr/local/bin/awslocal
-if [ ! -x "$AWSLOCAL" ] || ! grep -q 'lstk aws' "$AWSLOCAL" 2>/dev/null; then
-  log "writing $AWSLOCAL shim"
-  sudo tee "$AWSLOCAL" >/dev/null <<'SHIM'
-#!/usr/bin/env bash
-# awslocal: thin shim around `lstk aws`. Lets existing demo scripts
-# (bin/deploy.sh, AGENT_*.md) keep using `awslocal` while the actual work
-# happens via lstk's AWS proxy.
-exec lstk aws "$@"
-SHIM
-  sudo chmod +x "$AWSLOCAL"
+# ---- 3. Python venv (localstack CLI + test deps) ---------------------------
+VENV="${HOME}/.venv"
+if [ ! -x "${VENV}/bin/python" ]; then
+  log "creating venv at ${VENV}"
+  python3 -m venv "${VENV}"
+else
+  log "venv already present at ${VENV}"
 fi
 
-# ---- 5. NO_PROXY for lstk inside sandboxes with an HTTP proxy --------------
-# lstk's Go HTTP client otherwise tries to route LocalStack traffic through
-# the sandbox proxy and gets connection-refused. Tell it to bypass.
 PERSIST_FILE=/etc/sandbox-persistent.sh
-NO_PROXY_LINE='export NO_PROXY="${NO_PROXY:+$NO_PROXY,}localhost.localstack.cloud,.localstack.cloud"; export no_proxy="$NO_PROXY"'
-if ! sudo grep -Fq "localhost.localstack.cloud,.localstack.cloud" "$PERSIST_FILE" 2>/dev/null; then
-  log "adding .localstack.cloud to NO_PROXY via $PERSIST_FILE"
-  echo "$NO_PROXY_LINE" | sudo tee -a "$PERSIST_FILE" >/dev/null
-fi
-# Apply for the rest of this script too.
-export NO_PROXY="${NO_PROXY:+$NO_PROXY,}localhost.localstack.cloud,.localstack.cloud"
-export no_proxy="$NO_PROXY"
 
-# ---- 6. AWS profile so `lstk aws` (and plain aws) finds creds -------------
+# Persist $HOME/.venv/bin on PATH so future shells find localstack, awslocal, pytest.
+VENV_PATH_LINE='export PATH="$HOME/.venv/bin:$PATH"'
+if ! sudo grep -Fqx "${VENV_PATH_LINE}" "${PERSIST_FILE}" 2>/dev/null; then
+  log "persisting \$HOME/.venv/bin on PATH via ${PERSIST_FILE}"
+  echo "${VENV_PATH_LINE}" | sudo tee -a "${PERSIST_FILE}" >/dev/null
+fi
+export PATH="${VENV}/bin:${PATH}"
+
+log "upgrading pip in venv"
+"${VENV}/bin/pip" install --quiet --upgrade pip
+
+log "installing localstack CLI and awscli-local"
+"${VENV}/bin/pip" install --quiet "localstack" "awscli-local"
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REQ_FILE="${REPO_ROOT}/tests/requirements-dev.txt"
+if [ -r "${REQ_FILE}" ]; then
+  log "installing ${REQ_FILE} (boto3, pytest, requests, localstack-sdk-python)"
+  "${VENV}/bin/pip" install --quiet -r "${REQ_FILE}"
+else
+  log "WARN: ${REQ_FILE} not found, skipping"
+fi
+
+# ---- 4. AWS credentials so awslocal works without interactive setup --------
 mkdir -p "$HOME/.aws"
 if [ ! -s "$HOME/.aws/credentials" ] || ! grep -q '^\[localstack\]' "$HOME/.aws/credentials"; then
   log "writing ~/.aws/credentials"
@@ -128,39 +119,10 @@ endpoint_url = http://localhost:4566
 EOF
 fi
 
-# ---- 7. Python venv for test deps only ------------------------------------
-VENV="${HOME}/.venv"
-if [ ! -x "${VENV}/bin/python" ]; then
-  log "creating venv at ${VENV} (test deps only)"
-  python3 -m venv "${VENV}"
-else
-  log "venv already present at ${VENV}"
-fi
-
-# Persist $HOME/.venv/bin on PATH so future shells find pytest.
-VENV_PATH_LINE='export PATH="$HOME/.venv/bin:$PATH"'
-if ! sudo grep -Fqx "${VENV_PATH_LINE}" "${PERSIST_FILE}" 2>/dev/null; then
-  log "persisting \$HOME/.venv/bin on PATH via ${PERSIST_FILE}"
-  echo "${VENV_PATH_LINE}" | sudo tee -a "${PERSIST_FILE}" >/dev/null
-fi
-export PATH="${VENV}/bin:${PATH}"
-
-log "upgrading pip in venv"
-"${VENV}/bin/pip" install --quiet --upgrade pip
-
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-REQ_FILE="${REPO_ROOT}/tests/requirements-dev.txt"
-if [ -r "${REQ_FILE}" ]; then
-  log "installing ${REQ_FILE} (boto3, pytest, requests, localstack-sdk-python)"
-  "${VENV}/bin/pip" install --quiet -r "${REQ_FILE}"
-else
-  log "WARN: ${REQ_FILE} not found, skipping"
-fi
-
-# ---- 8. Report -------------------------------------------------------------
+# ---- 5. Report -------------------------------------------------------------
 echo
 log "tool check:"
-for t in docker lstk aws awslocal jq make zip unzip curl python3 pip node npm git pytest; do
+for t in docker localstack aws awslocal jq make zip unzip curl python3 pip git pytest; do
   if command -v "$t" >/dev/null 2>&1; then
     printf '  OK   %-12s %s\n' "$t" "$(command -v "$t")"
   else
