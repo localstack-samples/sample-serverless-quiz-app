@@ -3,6 +3,7 @@ import os
 import aws_cdk
 from aws_cdk import (
     Stack,
+    Tags,
     aws_s3 as s3,
     aws_cloudfront as cf,
     aws_cloudfront_origins as origins,
@@ -38,6 +39,8 @@ class FrontendStack(Stack):
                 viewer_protocol_policy=cf.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
             ),
         )
+
+        Tags.of(distribution).add("_custom_id_", "quiz-app")
 
         s3deploy.BucketDeployment(
             self,
