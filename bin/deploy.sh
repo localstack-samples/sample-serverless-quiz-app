@@ -347,7 +347,8 @@ log "Frontend deployed to S3."
 
 # Create CloudFront Distribution
 log "Creating CloudFront Distribution..."
-DISTRIBUTION=$(awslocal cloudfront create-distribution --distribution-config file://configurations/distribution-config.json)
+DISTRIBUTION=$(awslocal cloudfront create-distribution-with-tags \
+  --distribution-config-with-tags "$(jq '{DistributionConfig: ., Tags: {Items: [{Key: "_custom_id_", Value: "quiz-app"}]}}' configurations/distribution-config.json)")
 DOMAIN_NAME=$(echo "$DISTRIBUTION" | jq -r '.Distribution.DomainName')
 log "CloudFront Distribution created. Domain Name: https://$DOMAIN_NAME"
 
