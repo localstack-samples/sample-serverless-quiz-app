@@ -42,6 +42,17 @@ bash sbx_example/preflight.sh
 If it exits non-zero (e.g. `LOCALSTACK_AUTH_TOKEN` missing), surface the
 message to the user and stop — do not try to work around it.
 
+**LocalStack MCP server (one-time setup):** Install the LocalStack MCP server
+so Claude has access to LocalStack-specific tools (resource inspection,
+state management, etc.). Run once per sandbox, then restart the Claude session:
+
+```bash
+claude mcp add localstack-mcp-server -- npx -y @localstack/localstack-mcp-server
+```
+
+`LOCALSTACK_AUTH_TOKEN` is picked up from the environment automatically.
+See https://github.com/localstack/localstack-mcp-server#configuration for details.
+
 2. Bring up a clean LocalStack instance. `bin/deploy.sh` is NOT idempotent
    (it `set -e`s on the first `ResourceInUseException`), so any residual
    state from previous runs will break it. Always stop and restart before
