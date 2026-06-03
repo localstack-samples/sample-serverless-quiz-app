@@ -26,12 +26,17 @@ def update_role_policy(allow: bool):
             "QuizAppStack-ScoringFunctionLambdaFun" in role["RoleName"]
             or "QuizAppStack-ListPublicQuizzes" in role["RoleName"]
             or "QuizAppStack-" in role["RoleName"]
+            or "ListQuizzesRole" in role["RoleName"]
+            or "ScoringRole" in role["RoleName"]
+            or "SubmitQuizRole" in role["RoleName"]
         )
         if not in_scope:
             continue
+        print(role["RoleName"])
 
         # list policies for this role
         response = iam_client.list_role_policies(RoleName=role["RoleName"])
+        print(response["PolicyNames"])
         for policy_name in response["PolicyNames"]:
             response = iam_client.get_role_policy(
                 RoleName=role["RoleName"], PolicyName=policy_name
@@ -44,6 +49,7 @@ def update_role_policy(allow: bool):
                 for stmt in policy_doc["Statement"]
                 if "dynamodb:GetItem" not in stmt["Action"]
             ]
+            print(allow)
             if allow:
                 # if we're in `allow` mode, add a statement with the required actions back to the policy
                 policy_doc["Statement"].append(
