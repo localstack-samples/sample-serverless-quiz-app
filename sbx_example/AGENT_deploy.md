@@ -1,7 +1,7 @@
 # Deploy Task
 
-**Goal:** Get the Serverless Quiz App deployed on LocalStack via the AWS CLI
-path (`bin/deploy.sh`) so the user can interact with it in a browser. The
+**Goal:** Get the Serverless Quiz App deployed on LocalStack via CDK
+path (`bin/deploy_cdk.sh`) so the user can interact with it in a browser. The
 user will follow up by asking the agent to run the automated tests.
 
 This is a **live demo**: a human is watching the agent work via the
@@ -9,7 +9,7 @@ browser-embedded tmux viewer at `http://127.0.0.1:7681`. Keep that in mind —
 the viewer is not optional support tooling, it's the audience's window.
 
 **Do not use Cloud Pods.** The Cloud Pod path is intentionally excluded.
-Always deploy via `bin/deploy.sh`.
+Always deploy via `bin/deploy_cdk.sh`.
 
 ## Steps
 
@@ -42,6 +42,12 @@ bash sbx_example/preflight.sh
 If it exits non-zero (e.g. `LOCALSTACK_AUTH_TOKEN` missing), surface the
 message to the user and stop — do not try to work around it.
 
+**cdklocal (one-time setup):** Install the CDK and cdklocal CLI wrappers:
+
+```bash
+npm install -g aws-cdk-local aws-cdk
+```
+
 **LocalStack MCP server (one-time setup):** Install the LocalStack MCP server
 so Claude has access to LocalStack-specific tools (resource inspection,
 state management, etc.). Run once per sandbox, then restart the Claude session:
@@ -52,11 +58,6 @@ claude mcp add localstack-mcp-server -- npx -y @localstack/localstack-mcp-server
 
 `LOCALSTACK_AUTH_TOKEN` is picked up from the environment automatically.
 See https://github.com/localstack/localstack-mcp-server#configuration for details.
-
-2. Bring up a clean LocalStack instance. `bin/deploy.sh` is NOT idempotent
-   (it `set -e`s on the first `ResourceInUseException`), so any residual
-   state from previous runs will break it. Always stop and restart before
-   deploying:
 
 ```bash
 localstack stop || true
@@ -71,7 +72,7 @@ the background; they take an extra ~30s after the gateway is ready.
    repo's root `README.md` ("Option 1: AWS CLI Deployment (Recommended)"):
 
 ```bash
-bash bin/deploy.sh
+bash bin/deploy_cdk.sh
 ```
 
 This takes ~2–3 minutes. The script prints CloudFront and API Gateway URLs
@@ -81,8 +82,6 @@ on success:
 CloudFront URL: https://<id>.cloudfront.localhost.localstack.cloud
 API Gateway Endpoint: http://localhost:4566/_aws/execute-api/<id>/prod
 ```
-
-`bin/deploy.sh` uses `awslocal` for ~50 AWS calls.
 
 The script auto-detects the host architecture (`uname -m`) and passes
 `--architectures arm64` (or `x86_64`) to every `create-function` call. This
