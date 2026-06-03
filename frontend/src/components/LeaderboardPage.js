@@ -54,7 +54,7 @@ function LeaderboardPage() {
     const hostname = window.location.hostname;
 
     if (hostname.includes('localhost')) {
-      targetURL = `http://localhost:4566/_extension/mailhog/`;
+      targetURL = `http://localhost.localstack.cloud:4566/_extension/mailhog/`;
     } else {
       const baseOrigin = window.location.origin;
       targetURL = `${baseOrigin}/_extension/mailhog/`;

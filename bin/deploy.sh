@@ -261,7 +261,7 @@ log "Deploying API..."
 awslocal apigateway create-deployment \
     --rest-api-id $API_ID \
     --stage-name prod >/dev/null
-API_ENDPOINT="http://localhost:4566/_aws/execute-api/$API_ID/prod"
+API_ENDPOINT="http://localhost.localstack.cloud:4566/_aws/execute-api/$API_ID/prod"
 log "API deployed. Endpoint: $API_ENDPOINT"
 
 # SQS DLQ -> EventBridge Pipes -> SNS
@@ -336,7 +336,7 @@ else
 fi
 
 log "Building the project..."
-npm run build >/dev/null
+REACT_APP_API_ENDPOINT="$API_ENDPOINT" npm run build >/dev/null
 
 log "Uploading frontend build to S3..."
 awslocal s3 mb s3://webapp >/dev/null
