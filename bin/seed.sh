@@ -27,6 +27,11 @@ fi
 
 API_ENDPOINT="$AWS_ENDPOINT_URL/_aws/execute-api/$API_ID/prod"
 
+log "Waiting for API Lambda functions to become active..."
+for FUNCTION_NAME in CreateQuizFunction SubmitQuizFunction; do
+    awslocal lambda wait function-active-v2 --function-name ${FUNCTION_NAME}
+done
+
 create_quiz() {
     local quiz_data=$1
     local response=$(curl -s -X POST "$API_ENDPOINT/createquiz" \

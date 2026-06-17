@@ -403,6 +403,14 @@ log "Cleaning up temporary files..."
 rm *.zip
 log "Cleanup completed."
 
+log "Waiting for Lambda functions to become active..."
+for LAMBDA_INFO in "${LAMBDAS[@]}"; do
+  read FUNCTION_NAME _ _ <<< "$LAMBDA_INFO"
+  log "Waiting for $FUNCTION_NAME..."
+  awslocal lambda wait function-active-v2 --function-name ${FUNCTION_NAME}
+done
+log "Lambda functions are active."
+
 log "Starting seed process..."
 ./bin/seed.sh
 log "Seed process completed successfully."
