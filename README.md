@@ -36,10 +36,10 @@ The following diagram shows the architecture that this sample application builds
 ## Prerequisites
 
 - A valid [LocalStack for AWS license](https://localstack.cloud/pricing). Your license provides a [`LOCALSTACK_AUTH_TOKEN`](https://docs.localstack.cloud/getting-started/auth-token/) to activate LocalStack.
-- [`localstack` CLI](https://docs.localstack.cloud/getting-started/installation/#localstack-cli).
-- [AWS CLI](https://docs.localstack.cloud/user-guide/integrations/aws-cli/) with the [`awslocal` wrapper](https://docs.localstack.cloud/user-guide/integrations/aws-cli/#localstack-aws-cli-awslocal)
-- [AWS CDK](https://docs.localstack.cloud/user-guide/integrations/aws-cdk/) with [`cdklocal` wrapper](https://github.com/localstack/aws-cdk-local) (**optional**)
-- [Python 3.11+](https://www.python.org/downloads/) & `pip` for testing and Lambda functions
+- [`lstk` CLI](https://docs.localstack.cloud/aws/tooling/lstk/).
+- [AWS CLI](https://docs.localstack.cloud/user-guide/integrations/aws-cli/) with the [`lstk aws` proxy](https://docs.localstack.cloud/aws/tooling/lstk/)
+- [AWS CDK](https://docs.localstack.cloud/user-guide/integrations/aws-cdk/) with the [`lstk cdk` proxy](https://docs.localstack.cloud/aws/tooling/lstk/) (**optional**)
+- [Python 3.11+](https://www.python.org/downloads/) & `pip3` for testing and Lambda functions
 - [`make`](https://www.gnu.org/software/make/) (**optional**, but recommended for running the sample application)
 
 ## Installation
@@ -61,18 +61,17 @@ cd sample-serverless-quiz-app
 Create a virtual environment and install the testing dependencies:
 
 ```shell
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -r tests/requirements-dev.txt
+pip3 install -r tests/requirements-dev.txt
 ```
 
 ## Deployment
 
-Start LocalStack with the `LOCALSTACK_AUTH_TOKEN` pre-configured:
+Start LocalStack:
 
 ```shell
-localstack auth set-token <your-auth-token>
-localstack start
+lstk start
 ```
 
 ### Option 1: AWS CLI Deployment (Recommended)
@@ -92,12 +91,11 @@ API Gateway Endpoint: http://localhost:4566/_aws/execute-api/4xu5emxibf/test
 
 ### Option 2: CDK Local Deployment
 
-Alternatively, deploy using CDK with LocalStack:
+Alternatively, deploy using CDK with LocalStack. Install the CDK app's Python dependencies, then run the deploy script from the repository root
 
 ```shell
-cd cdk
-cdklocal bootstrap
-AWS_CMD=awslocal CDK_CMD=cdklocal bash ../bin/deploy_cdk.sh
+pip3 install -r cdk/requirements.txt
+AWS_CMD="lstk aws" CDK_CMD="lstk cdk" bash bin/deploy_cdk.sh
 ```
 
 ## Testing
@@ -117,9 +115,12 @@ Navigate to the CloudFront URL from the deployment output to interact with the q
 
 ### End-to-End Integration Testing
 
-Run the complete test suite to validate quiz creation, submission, and scoring:
+Run the complete test suite to validate quiz creation, submission, and scoring. The tests create a boto3 client with no explicit credentials, so export dummy ones first — otherwise boto3 falls back to whatever real AWS profile/SSO session you have configured (if any), which has nothing to do with the local stack and may itself be expired or invalid:
 
 ```shell
+export AWS_DEFAULT_REGION=us-east-1
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
 pytest tests/test_infra.py
 ```
 
@@ -152,19 +153,19 @@ Click on the resources to inspect their configurations and observe how they oper
 To avoid deploying from scratch, you can setup the local development environment using Cloud Pods. To setup the entire stack using Cloud Pods, re-start your LocalStack container:
 
 ```bash 
-localstack restart
+lstk restart
 ```
 
 Run the following command to inject the infrastructure state from Cloud Pods:
 
 ```bash 
-localstack pod load serverless-quiz-app
+lstk load pod:serverless-quiz-app
 ```
 
 Make sure your Auth Token is in your terminal session. You can get the link to the live app in the following fashion:
 
 ```bash
-DISTRIBUTION_ID=$(awslocal cloudfront list-distributions | jq -r '.DistributionList.Items[0].Id')
+DISTRIBUTION_ID=$(lstk aws cloudfront list-distributions | jq -r '.DistributionList.Items[0].Id')
 echo "https://$DISTRIBUTION_ID.cloudfront.localhost.localstack.cloud"
 ```
 
@@ -194,7 +195,7 @@ For testing the app within the GitHub Actions workflow, you can refer to the pro
 
 Visit the [IAM Policy Stream](https://app.localstack.cloud/inst/default/policy-stream) to view the permissions required for each API call. This feature enables you to explore and progressively enhance security as your application develops.
 
-To get started, restart the LocalStack container using the command `localstack restart` and load the Cloud Pod. Then, click on **Enable Stream**. You can un-select **Show internal calls** to prevent IAM policies that are unnecessary for the demo. 
+To get started, restart the LocalStack container using the command `lstk restart` and load the Cloud Pod. Then, click on **Enable Stream**. You can un-select **Show internal calls** to prevent IAM policies that are unnecessary for the demo. 
 
 Toggle **Enforce IAM Policies** to enable strict IAM enforcement. For demo purpose, the following policy statement has been removed from the `configurations/submit_quiz_policy.json`:
 
@@ -218,9 +219,13 @@ To experiment with Chaos in your developer environment, visit the [Chaos Enginee
 
 The application is designed with a robust architectural pattern: if a new quiz is created during a DynamoDB outage, the response is captured in an SNS topic, forwarded to an SQS queue, and then processed by a Lambda function which continues to attempt processing until the DynamoDB table is available again.
 
-To test this pattern, execute the automated test suite with the following command:
+To test this pattern, execute the automated test suite with the following command (as with `test_infra.py`, dummy AWS credentials are required; `ChaosClient` additionally reads `LOCALSTACK_AUTH_TOKEN` directly to authenticate against the Chaos API):
 
 ```bash
+export AWS_DEFAULT_REGION=us-east-1
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+export LOCALSTACK_AUTH_TOKEN=<your-auth-token>
 pytest tests/test_outage.py
 ``` 
 
@@ -233,6 +238,8 @@ To launch a short-lived, encapsulated deployment of the application on a remote 
 ```bash
 bash bin/ephemeral.sh
 ```
+
+> `bin/ephemeral.sh` uses `localstack ephemeral create`, which manages LocalStack's hosted Ephemeral Instances platform feature. `lstk` has no `ephemeral` command, so this script still depends on the `localstack` CLI.
 
 This setup process typically takes about 1-2 minutes. Each Ephemeral Instance will remain active for 2 hours. If continuous availability is required for demo purposes, the instance will need to be recreated every 2 hours.
 

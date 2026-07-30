@@ -34,10 +34,11 @@ jobs:
 
       - name: Install AWS CLI
         run: |
-          pip install awscli awscli-local
+          pip3 install awscli awscli-local
 
       - name: Run Ephemeral Script and Capture Output
         run: |
+          # TODO(lstk): no ephemeral-instance equivalent in lstk yet — bin/ephemeral.sh still requires the `localstack` CLI.
           pip3 install localstack
           bash bin/ephemeral.sh 2>&1 | tee output.log
 

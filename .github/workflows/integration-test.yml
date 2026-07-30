@@ -40,17 +40,18 @@ jobs:
 
       - name: Set up Dependencies
         run: |
-          pip install requests boto3 pytest localstack-sdk-python
+          pip3 install requests boto3 pytest localstack-sdk-python
+
+      - name: Install lstk
+        run: |
+          npm install -g @localstack/lstk
 
       - name: Start LocalStack
-        uses: LocalStack/setup-localstack@main
-        with:
-          image-tag: 'latest'
-          use-pro: 'true'
-          configuration: LS_LOG=trace
-          install-awslocal: 'true'
+        run: |
+          lstk --non-interactive start --timeout 120s
         env:
           LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
+          LOCALSTACK_LS_LOG: trace
 
       - name: Deploy infrastructure
         run: |
@@ -78,7 +79,7 @@ jobs:
       - name: Show localstack logs
         if: always()
         run: |
-          localstack logs
+          lstk logs
 
       - name: Send a Slack notification
         if: failure() || github.event_name != 'pull_request'

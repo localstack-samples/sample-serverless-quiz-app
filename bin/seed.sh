@@ -16,7 +16,7 @@ error_log() {
     echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ERROR:${NC} $1" >&2
 }
 
-API_ID=$(awslocal apigateway get-rest-apis \
+API_ID=$(lstk aws apigateway get-rest-apis \
   --query "items[?name=='$API_NAME'].id" \
   --output text)
 
@@ -29,7 +29,7 @@ API_ENDPOINT="$AWS_ENDPOINT_URL/_aws/execute-api/$API_ID/prod"
 
 log "Waiting for API Lambda functions to become active..."
 for FUNCTION_NAME in CreateQuizFunction SubmitQuizFunction; do
-    awslocal lambda wait function-active-v2 --function-name ${FUNCTION_NAME}
+    lstk aws lambda wait function-active-v2 --function-name ${FUNCTION_NAME}
 done
 
 create_quiz() {

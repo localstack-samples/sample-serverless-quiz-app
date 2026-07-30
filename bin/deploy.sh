@@ -26,7 +26,7 @@ trap 'error_log "An error occurred. Exiting..."; exit 1' ERR
 log "Creating DynamoDB tables..."
 
 log "Creating 'Quizzes' table..."
-awslocal dynamodb create-table \
+lstk aws dynamodb create-table \
     --table-name Quizzes \
     --attribute-definitions AttributeName=QuizID,AttributeType=S \
     --key-schema AttributeName=QuizID,KeyType=HASH \
@@ -34,7 +34,7 @@ awslocal dynamodb create-table \
     --output text >/dev/null
 
 log "Creating 'UserSubmissions' table..."
-awslocal dynamodb create-table \
+lstk aws dynamodb create-table \
     --table-name UserSubmissions \
     --attribute-definitions \
         AttributeName=SubmissionID,AttributeType=S \
@@ -60,7 +60,7 @@ log "DynamoDB tables created successfully."
 
 # Create SQS queue
 log "Creating SQS queue 'QuizSubmissionQueue'..."
-awslocal sqs create-queue --queue-name QuizSubmissionQueue >/dev/null
+lstk aws sqs create-queue --queue-name QuizSubmissionQueue >/dev/null
 log "SQS queue 'QuizSubmissionQueue' created successfully."
 
 # Zip Lambda functions
@@ -93,18 +93,18 @@ for FUNCTION_INFO in "${FUNCTIONS[@]}"; do
   read FUNCTION_NAME POLICY_FILE ROLE_NAME <<< "$FUNCTION_INFO"
 
   log "Creating IAM policy for $FUNCTION_NAME..."
-  awslocal iam create-policy \
+  lstk aws iam create-policy \
       --policy-name ${FUNCTION_NAME}Policy \
       --policy-document file://${POLICY_FILE} >/dev/null
 
   log "Creating IAM role $ROLE_NAME..."
-  ROLE_ARN=$(awslocal iam create-role \
+  ROLE_ARN=$(lstk aws iam create-role \
       --role-name ${ROLE_NAME} \
       --assume-role-policy-document file://configurations/lambda_trust_policy.json \
       --query 'Role.Arn' --output text)
 
   log "Attaching policy to role $ROLE_NAME..."
-  awslocal iam attach-role-policy \
+  lstk aws iam attach-role-policy \
       --role-name ${ROLE_NAME} \
       --policy-arn arn:aws:iam::000000000000:policy/${FUNCTION_NAME}Policy
 done
@@ -112,15 +112,15 @@ log "IAM policies and roles created successfully."
 
 # Create IAM Policy and Role for State Machine
 log "Creating IAM policy and role for State Machine..."
-awslocal iam create-policy \
+lstk aws iam create-policy \
     --policy-name SendEmailStateMachinePolicy \
     --policy-document file://configurations/state_machine_policy.json >/dev/null
 
-awslocal iam create-role \
+lstk aws iam create-role \
     --role-name SendEmailStateMachineRole \
     --assume-role-policy-document file://configurations/state_machine_trust_policy.json >/dev/null
 
-awslocal iam attach-role-policy \
+lstk aws iam attach-role-policy \
     --role-name SendEmailStateMachineRole \
     --policy-arn arn:aws:iam::000000000000:policy/SendEmailStateMachinePolicy
 log "IAM policy and role for State Machine created successfully."
@@ -143,7 +143,7 @@ for LAMBDA_INFO in "${LAMBDAS[@]}"; do
   read FUNCTION_NAME ZIP_FILE ROLE_NAME <<< "$LAMBDA_INFO"
 
   log "Creating Lambda function $FUNCTION_NAME..."
-  awslocal lambda create-function \
+  lstk aws lambda create-function \
       --function-name ${FUNCTION_NAME} \
       --runtime python3.10 \
       --handler handler.lambda_handler \
@@ -156,10 +156,10 @@ log "Lambda functions deployed successfully."
 
 # SQS Trigger
 log "Setting up SQS trigger for ScoringFunction..."
-QUEUE_URL=$(awslocal sqs get-queue-url --queue-name QuizSubmissionQueue --query 'QueueUrl' --output text)
-QUEUE_ARN=$(awslocal sqs get-queue-attributes --queue-url $QUEUE_URL --attribute-names QueueArn --query 'Attributes.QueueArn' --output text)
+QUEUE_URL=$(lstk aws sqs get-queue-url --queue-name QuizSubmissionQueue --query 'QueueUrl' --output text)
+QUEUE_ARN=$(lstk aws sqs get-queue-attributes --queue-url $QUEUE_URL --attribute-names QueueArn --query 'Attributes.QueueArn' --output text)
 
-awslocal lambda create-event-source-mapping \
+lstk aws lambda create-event-source-mapping \
     --function-name ScoringFunction \
     --batch-size 10 \
     --event-source-arn $QUEUE_ARN >/dev/null
@@ -167,13 +167,13 @@ log "SQS trigger set up successfully."
 
 # Create REST API
 log "Creating REST API..."
-API_ID=$(awslocal apigateway create-rest-api \
+API_ID=$(lstk aws apigateway create-rest-api \
     --name 'QuizAPI' \
     --query 'id' --output text)
 log "REST API 'QuizAPI' created with ID: $API_ID"
 
 # Get Root Resource ID
-PARENT_ID=$(awslocal apigateway get-resources \
+PARENT_ID=$(lstk aws apigateway get-resources \
     --rest-api-id $API_ID \
     --query 'items[0].id' --output text)
 log "Root resource ID: $PARENT_ID"
@@ -193,19 +193,19 @@ for ENDPOINT_INFO in "${ENDPOINTS[@]}"; do
 
   log "Setting up API endpoint /$PATH_PART [$HTTP_METHOD] -> $FUNCTION_NAME"
 
-  RESOURCE_ID=$(awslocal apigateway create-resource \
+  RESOURCE_ID=$(lstk aws apigateway create-resource \
       --rest-api-id $API_ID \
       --parent-id $PARENT_ID \
       --path-part $PATH_PART \
       --query 'id' --output text)
 
-  awslocal apigateway put-method \
+  lstk aws apigateway put-method \
       --rest-api-id $API_ID \
       --resource-id $RESOURCE_ID \
       --http-method $HTTP_METHOD \
       --authorization-type "NONE" >/dev/null
 
-  awslocal apigateway put-integration \
+  lstk aws apigateway put-integration \
       --rest-api-id $API_ID \
       --resource-id $RESOURCE_ID \
       --http-method $HTTP_METHOD \
@@ -213,27 +213,27 @@ for ENDPOINT_INFO in "${ENDPOINTS[@]}"; do
       --integration-http-method POST \
       --uri arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:000000000000:function:${FUNCTION_NAME}/invocations >/dev/null
 
-  awslocal apigateway put-method \
+  lstk aws apigateway put-method \
       --rest-api-id $API_ID \
       --resource-id $RESOURCE_ID \
       --http-method OPTIONS \
       --authorization-type "NONE" >/dev/null
 
-  awslocal apigateway put-integration \
+  lstk aws apigateway put-integration \
       --rest-api-id $API_ID \
       --resource-id $RESOURCE_ID \
       --http-method OPTIONS \
       --type MOCK \
       --request-templates '{ "application/json": "{\"statusCode\": 200}" }' >/dev/null
 
-  awslocal apigateway put-method-response \
+  lstk aws apigateway put-method-response \
       --rest-api-id $API_ID \
       --resource-id $RESOURCE_ID \
       --http-method OPTIONS \
       --status-code 204 \
       --response-parameters "method.response.header.Access-Control-Allow-Headers=true,method.response.header.Access-Control-Allow-Origin=true,method.response.header.Access-Control-Allow-Methods=true" >/dev/null
 
-  awslocal apigateway put-integration-response \
+  lstk aws apigateway put-integration-response \
       --rest-api-id $API_ID \
       --resource-id $RESOURCE_ID \
       --http-method OPTIONS \
@@ -244,7 +244,7 @@ log "API endpoints set up successfully."
 
 # Deploy API
 log "Deploying API..."
-awslocal apigateway create-deployment \
+lstk aws apigateway create-deployment \
     --rest-api-id $API_ID \
     --stage-name prod >/dev/null
 API_ENDPOINT="http://localhost:4566/_aws/execute-api/$API_ID/prod"
@@ -252,15 +252,15 @@ log "API deployed. Endpoint: $API_ENDPOINT"
 
 # SQS DLQ -> EventBridge Pipes -> SNS
 log "Setting up SQS DLQ, EventBridge Pipes, and SNS..."
-SNS_TOPIC_ARN=$(awslocal sns create-topic --name DLQAlarmTopic --output json | jq -r '.TopicArn')
-DLQ_URL=$(awslocal sqs create-queue --queue-name QuizSubmissionDLQ --output json | jq -r '.QueueUrl')
-DLQ_ARN=$(awslocal sqs get-queue-attributes --queue-url $DLQ_URL --attribute-names QueueArn --query 'Attributes.QueueArn' --output text)
+SNS_TOPIC_ARN=$(lstk aws sns create-topic --name DLQAlarmTopic --output json | jq -r '.TopicArn')
+DLQ_URL=$(lstk aws sqs create-queue --queue-name QuizSubmissionDLQ --output json | jq -r '.QueueUrl')
+DLQ_ARN=$(lstk aws sqs get-queue-attributes --queue-url $DLQ_URL --attribute-names QueueArn --query 'Attributes.QueueArn' --output text)
 log "SNS Topic ARN: $SNS_TOPIC_ARN"
 log "DLQ ARN: $DLQ_ARN"
 
 # Configure SQS Redrive Policy
 log "Configuring SQS Redrive Policy..."
-awslocal sqs set-queue-attributes \
+lstk aws sqs set-queue-attributes \
     --queue-url $QUEUE_URL \
     --attributes '{
         "RedrivePolicy": "{\"deadLetterTargetArn\":\"'$DLQ_ARN'\",\"maxReceiveCount\":\"1\"}",
@@ -270,13 +270,13 @@ log "SQS Redrive Policy configured."
 
 # Verify Email Identity for SES
 log "Verifying email identity for SES..."
-awslocal ses verify-email-identity --email your.email@example.com >/dev/null
-awslocal ses verify-email-identity --email admin@localstack.com >/dev/null
+lstk aws ses verify-email-identity --email your.email@example.com >/dev/null
+lstk aws ses verify-email-identity --email admin@localstack.com >/dev/null
 log "Email identity verified. Check your email to confirm."
 
 # Subscribe Email to SNS Topic
 log "Subscribing email to SNS Topic..."
-awslocal sns subscribe \
+lstk aws sns subscribe \
     --topic-arn $SNS_TOPIC_ARN \
     --protocol email \
     --notification-endpoint your.email@example.com >/dev/null
@@ -284,11 +284,11 @@ log "Email subscribed to SNS Topic."
 
 # Create IAM Role for Pipe
 log "Creating IAM Role for EventBridge Pipe..."
-awslocal iam create-role \
+lstk aws iam create-role \
     --role-name PipeRole \
     --assume-role-policy-document file://configurations/pipe_role_trust_policy.json >/dev/null
 
-awslocal iam put-role-policy \
+lstk aws iam put-role-policy \
     --role-name PipeRole \
     --policy-name PipePolicy \
     --policy-document file://configurations/pipe_role_policy.json >/dev/null
@@ -296,7 +296,7 @@ log "IAM Role for Pipe created."
 
 # Create EventBridge Pipe
 log "Creating EventBridge Pipe..."
-awslocal pipes create-pipe \
+lstk aws pipes create-pipe \
   --name DLQToSNSPipe \
   --source $DLQ_ARN \
   --target $SNS_TOPIC_ARN \
@@ -305,7 +305,7 @@ log "EventBridge Pipe created."
 
 # Create State Machine
 log "Creating Step Functions State Machine..."
-awslocal stepfunctions create-state-machine \
+lstk aws stepfunctions create-state-machine \
     --name SendEmailStateMachine \
     --definition file://configurations/statemachine.json \
     --role-arn arn:aws:iam::000000000000:role/SendEmailStateMachineRole >/dev/null
@@ -325,32 +325,32 @@ log "Building the project..."
 npm run build >/dev/null
 
 log "Uploading frontend build to S3..."
-awslocal s3 mb s3://webapp >/dev/null
-awslocal s3 sync --delete ./build s3://webapp >/dev/null
-awslocal s3 website s3://webapp --index-document index.html --error-document index.html >/dev/null
+lstk aws s3 mb s3://webapp >/dev/null
+lstk aws s3 sync --delete ./build s3://webapp >/dev/null
+lstk aws s3 website s3://webapp --index-document index.html --error-document index.html >/dev/null
 popd >/dev/null
 log "Frontend deployed to S3."
 
 # Create CloudFront Distribution
 log "Creating CloudFront Distribution..."
-DISTRIBUTION=$(awslocal cloudfront create-distribution --distribution-config file://configurations/distribution-config.json)
+DISTRIBUTION=$(lstk aws cloudfront create-distribution --distribution-config file://configurations/distribution-config.json)
 DOMAIN_NAME=$(echo "$DISTRIBUTION" | jq -r '.Distribution.DomainName')
 log "CloudFront Distribution created. Domain Name: https://$DOMAIN_NAME"
 
 # Setup Chaos Testing
 log "Setting up Chaos Testing..."
-awslocal sns create-topic --name QuizzesWriteFailures --output json >/dev/null
+lstk aws sns create-topic --name QuizzesWriteFailures --output json >/dev/null
 
-WRITE_FAILURES_QUEUE_URL=$(awslocal sqs create-queue --queue-name QuizzesWriteFailuresQueue --attributes VisibilityTimeout=60 --output json | jq -r '.QueueUrl')
-WRITE_FAILURES_QUEUE_ARN=$(awslocal sqs get-queue-attributes --queue-url $WRITE_FAILURES_QUEUE_URL --attribute-names QueueArn --query 'Attributes.QueueArn' --output text)
+WRITE_FAILURES_QUEUE_URL=$(lstk aws sqs create-queue --queue-name QuizzesWriteFailuresQueue --attributes VisibilityTimeout=60 --output json | jq -r '.QueueUrl')
+WRITE_FAILURES_QUEUE_ARN=$(lstk aws sqs get-queue-attributes --queue-url $WRITE_FAILURES_QUEUE_URL --attribute-names QueueArn --query 'Attributes.QueueArn' --output text)
 
-awslocal sns subscribe \
+lstk aws sns subscribe \
     --topic-arn arn:aws:sns:us-east-1:000000000000:QuizzesWriteFailures \
     --protocol sqs \
     --notification-endpoint $WRITE_FAILURES_QUEUE_ARN \
     --output text >/dev/null
 
-awslocal lambda create-event-source-mapping \
+lstk aws lambda create-event-source-mapping \
     --function-name RetryQuizzesWritesFunction \
     --batch-size 10 \
     --event-source-arn $WRITE_FAILURES_QUEUE_ARN \
@@ -361,7 +361,7 @@ log "Chaos Testing setup completed."
 # API Gateway permissions
 log "Setting up API Gateway permissions for Lambda functions..."
 API_NAME="QuizAPI"
-API_ID=$(awslocal apigateway get-rest-apis \
+API_ID=$(lstk aws apigateway get-rest-apis \
   --query "items[?name=='$API_NAME'].id" \
   --output text)
 
@@ -378,7 +378,7 @@ for PERMISSION_INFO in "${LAMBDA_PERMISSIONS[@]}"; do
   read FUNCTION_NAME HTTP_METHOD PATH_PART <<< "$PERMISSION_INFO"
 
   log "Adding permission for $FUNCTION_NAME to be invoked by API Gateway..."
-  awslocal lambda add-permission \
+  lstk aws lambda add-permission \
       --function-name ${FUNCTION_NAME} \
       --statement-id AllowAPIGatewayInvoke \
       --action lambda:InvokeFunction \
@@ -389,13 +389,13 @@ log "API Gateway permissions set."
 
 # Set SQS Queue Policy for QuizzesWriteFailuresQueue
 log "Setting SQS Queue Policy for QuizzesWriteFailuresQueue..."
-QUEUE_URL=$(awslocal sqs get-queue-url --queue-name QuizzesWriteFailuresQueue --output text --query QueueUrl)
+QUEUE_URL=$(lstk aws sqs get-queue-url --queue-name QuizzesWriteFailuresQueue --output text --query QueueUrl)
 
 policy_json=$(cat configurations/sqs_queue_policy.json | jq -c . | jq -R .)
 
-awslocal sqs set-queue-attributes --queue-url "$QUEUE_URL" --attributes "{\"Policy\":$policy_json}" >/dev/null
+lstk aws sqs set-queue-attributes --queue-url "$QUEUE_URL" --attributes "{\"Policy\":$policy_json}" >/dev/null
 
-awslocal sqs get-queue-attributes --queue-url "$QUEUE_URL" --attribute-names All >/dev/null
+lstk aws sqs get-queue-attributes --queue-url "$QUEUE_URL" --attribute-names All >/dev/null
 log "SQS Queue Policy set."
 
 # Cleanup
@@ -407,7 +407,7 @@ log "Waiting for Lambda functions to become active..."
 for LAMBDA_INFO in "${LAMBDAS[@]}"; do
   read FUNCTION_NAME _ _ <<< "$LAMBDA_INFO"
   log "Waiting for $FUNCTION_NAME..."
-  awslocal lambda wait function-active-v2 --function-name ${FUNCTION_NAME}
+  lstk aws lambda wait function-active-v2 --function-name ${FUNCTION_NAME}
 done
 log "Lambda functions are active."
 

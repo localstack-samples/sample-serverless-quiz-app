@@ -3,6 +3,7 @@
 INSTANCE_NAME="instance-$(openssl rand -hex 4)"
 echo "Creating ephemeral instance with name: $INSTANCE_NAME"
 
+# TODO(lstk): no ephemeral-instance equivalent in lstk yet — this still requires the `localstack` CLI.
 CREATE_RESPONSE=$(localstack ephemeral create \
   --name "$INSTANCE_NAME" \
   --lifetime 120 \
@@ -30,7 +31,7 @@ echo "Deploying resources..."
 bash bin/deploy.sh > /dev/null 2>&1
 echo "Deployment completed."
 
-DISTRIBUTION_ID=$(awslocal cloudfront list-distributions --endpoint-url="$ENDPOINT_URL" | jq -r '.DistributionList.Items[0].Id')
+DISTRIBUTION_ID=$(lstk aws cloudfront list-distributions --endpoint-url="$ENDPOINT_URL" | jq -r '.DistributionList.Items[0].Id')
 
 if [ -z "$DISTRIBUTION_ID" ] || [ "$DISTRIBUTION_ID" = "null" ]; then
   echo "Error retrieving CloudFront distribution ID."
