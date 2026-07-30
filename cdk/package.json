@@ -4,14 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "cdk": "cdk",
-    "cdklocal": "cdklocal"
+    "cdk": "cdk"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "aws-cdk": "^2.171.0",
-    "aws-cdk-local": "^2.19.0"
+    "aws-cdk": "^2.171.0"
   }
 }

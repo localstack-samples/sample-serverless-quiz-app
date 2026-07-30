@@ -1,12 +1,9 @@
-import os
-
 import aws_cdk
 from aws_cdk import (
     Stack,
     aws_s3 as s3,
     aws_cloudfront as cf,
     aws_cloudfront_origins as origins,
-    aws_s3_deployment as s3deploy,
     CfnOutput,
 )
 from constructs import Construct
@@ -39,20 +36,18 @@ class FrontendStack(Stack):
             ),
         )
 
-        s3deploy.BucketDeployment(
-            self,
-            "DeployApp",
-            sources=[
-                s3deploy.Source.asset(
-                    os.path.join(
-                        os.path.dirname(__file__), "..", "..", "frontend", "build"
-                    )
-                ),
-            ],
-            destination_bucket=webapp_bucket,
-            distribution=distribution,
-            distribution_paths=["/*"],
-        )
+        # The frontend build isn't synced via s3_deployment.BucketDeployment:
+        # that construct's singleton handler shells out to a real, unpatched
+        # AWS CLI binary (bundled via AwsCliLayer) to run `aws s3 cp`. LocalStack's
+        # Lambda executor unconditionally blanks the AWS_CA_BUNDLE env var for
+        # every function (confirmed: even an explicit override on the function's
+        # own configuration gets reset), which that unpatched CLI rejects as
+        # invalid, so the deployment always fails with "Invalid CA bundle".
+        # Instead, bin/deploy_cdk.sh syncs the build to WebAppBucket (below) and
+        # invalidates FrontendDistribution directly via `lstk aws`, after this
+        # stack deploys.
 
         CfnOutput(self, "DistributionDomainName", value=distribution.domain_name)
+        CfnOutput(self, "WebAppBucketName", value=webapp_bucket.bucket_name)
+        CfnOutput(self, "DistributionId", value=distribution.distribution_id)
 

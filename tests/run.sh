@@ -109,7 +109,7 @@ curl -s http://localhost.localstack.cloud:4566/_aws/ses
 
 # Chaos
 
-awslocal sqs receive-message --queue-url $WRITE_FAILURES_QUEUE_URL --max-number-of-messages 10 --wait-time-seconds 5
+lstk aws sqs receive-message --queue-url $WRITE_FAILURES_QUEUE_URL --max-number-of-messages 10 --wait-time-seconds 5
 
 curl -X POST "$API_ENDPOINT/createquiz" \
 -H "Content-Type: application/json" \

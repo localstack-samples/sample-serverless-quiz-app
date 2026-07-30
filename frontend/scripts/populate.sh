@@ -5,7 +5,7 @@ API_NAME="QuizAPI"
 # Check if AWS_ENDPOINT_URL is set, otherwise default to localhost:4566
 AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL:-"http://localhost:4566"}
 
-API_ID=$(awslocal apigateway get-rest-apis \
+API_ID=$(lstk aws apigateway get-rest-apis \
   --query "items[?name=='$API_NAME'].id" \
   --output text)
 

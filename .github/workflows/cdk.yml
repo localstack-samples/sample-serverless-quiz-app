@@ -29,18 +29,26 @@ jobs:
 
       - name: Install CDK
         run: |
-          npm install -g aws-cdk-local aws-cdk
-          cdklocal --version
+          npm install -g aws-cdk
+
+      - name: Install lstk
+        run: |
+          npm install -g @localstack/lstk
 
       - name: Start LocalStack
-        uses: LocalStack/setup-localstack@main
-        with:
-          image-tag: 'latest'
-          use-pro: 'true'
-          configuration: DEBUG=1
-          install-awslocal: 'true'
+        run: |
+          lstk --non-interactive start --timeout 120s
+          lstk cdk --version
         env:
           LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
+          LOCALSTACK_DEBUG: "1"
+
+      - name: Configure AWS profile for lstk
+        run: |
+          # Without a profile, `lstk aws` prints "Note: No AWS profile found,
+          # run 'lstk setup aws'" to stdout, which corrupts every $(lstk aws ...)
+          # command substitution in bin/deploy.sh and bin/deploy_cdk.sh.
+          lstk setup aws --non-interactive --force
 
       - name: Install dependencies
         run: |
@@ -57,20 +65,20 @@ jobs:
           export AWS_ACCESS_KEY_ID="test"
           export AWS_SECRET_ACCESS_KEY="test"
           export AWS_DEFAULT_REGION="us-east-1"
-          cdklocal bootstrap
+          lstk cdk bootstrap
           cd ..
-          AWS_CMD=awslocal CDK_CMD=cdklocal bash ./bin/deploy_cdk.sh
+          AWS_CMD="lstk aws" CDK_CMD="lstk cdk" bash ./bin/deploy_cdk.sh
 
       - name: List the resources
         run: |
-          awslocal lambda list-functions
-          awslocal sqs list-queues 
-          awslocal dynamodb list-tables
-          awslocal s3 ls
+          lstk aws lambda list-functions
+          lstk aws sqs list-queues
+          lstk aws dynamodb list-tables
+          lstk aws s3 ls
 
       - name: Set up test dependencies
         run: |
-          pip install requests boto3 pytest localstack-sdk-python
+          pip3 install requests boto3 pytest localstack-sdk-python
 
       - name: Run Integration Tests
         env:

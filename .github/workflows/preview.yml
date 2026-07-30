@@ -1,8 +1,12 @@
 name: 'Create Preview on Pull Request'
 on:
   workflow_dispatch:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  # Disabled: `lstk aws` (used throughout bin/deploy.sh) always targets its own
+  # locally-managed emulator and ignores AWS_ENDPOINT_URL, so it can't reach
+  # the remote ephemeral instance this workflow provisions. Re-enable once
+  # that's resolved.
+  # pull_request:
+  #   types: [opened, synchronize, reopened]
 
 jobs:
   localstack:
@@ -16,6 +20,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install lstk
+        run: |
+          npm install -g @localstack/lstk
+      # TODO(lstk): `lstk start` only manages a local Docker-based emulator — it has
+      # no equivalent for this action's `state-backend: ephemeral` remote instance
+      # provisioning, `preview-cmd` hook, or GitHub PR preview-link comment, so this
+      # step still depends on the setup-localstack action.
       - name: LocalStack Preview
         uses: LocalStack/setup-localstack@main
         with:
@@ -23,12 +34,12 @@ jobs:
           state-backend: ephemeral
           state-action: start
           include-preview: 'true'
+          # TODO(lstk): no install-lstk equivalent in the setup-localstack action yet — lstk is installed via npm in the step above instead.
           install-awslocal: 'true'
           extension-auto-install: 'localstack-extension-mailhog'
           preview-cmd: |
-            pip install awscli awscli-local
             ./bin/deploy.sh
-            distributionId=$(awslocal cloudfront list-distributions | jq -r '.DistributionList.Items[0].Id');
+            distributionId=$(lstk aws cloudfront list-distributions | jq -r '.DistributionList.Items[0].Id');
             echo LS_PREVIEW_URL=$AWS_ENDPOINT_URL/cloudfront/$distributionId/ >> $GITHUB_ENV;
         env:
           LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
