@@ -1,9 +1,13 @@
 name: Deploy Redirect to GitHub Pages
 
 on:
-  schedule:
-    - cron: '0 * * * *'
   workflow_dispatch:
+  # Disabled: bin/deploy.sh (called by bin/ephemeral.sh) uses `lstk aws`
+  # throughout, which always targets its own locally-managed emulator and
+  # ignores AWS_ENDPOINT_URL, so it can't reach the remote ephemeral instance
+  # this workflow provisions. Re-enable once that's resolved.
+  # schedule:
+  #   - cron: '0 * * * *'
 
 permissions:
   contents: write

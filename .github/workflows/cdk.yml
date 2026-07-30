@@ -34,14 +34,21 @@ jobs:
       - name: Install lstk
         run: |
           npm install -g @localstack/lstk
-          lstk cdk --version
 
       - name: Start LocalStack
         run: |
           lstk --non-interactive start --timeout 120s
+          lstk cdk --version
         env:
           LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
           LOCALSTACK_DEBUG: "1"
+
+      - name: Configure AWS profile for lstk
+        run: |
+          # Without a profile, `lstk aws` prints "Note: No AWS profile found,
+          # run 'lstk setup aws'" to stdout, which corrupts every $(lstk aws ...)
+          # command substitution in bin/deploy.sh and bin/deploy_cdk.sh.
+          lstk setup aws --non-interactive --force
 
       - name: Install dependencies
         run: |

@@ -40,6 +40,13 @@ jobs:
         LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
         LOCALSTACK_LS_LOG: trace
 
+    - name: Configure AWS profile for lstk
+      run: |
+        # Without a profile, `lstk aws` prints "Note: No AWS profile found,
+        # run 'lstk setup aws'" to stdout, which corrupts every $(lstk aws ...)
+        # command substitution in bin/deploy.sh.
+        lstk setup aws --non-interactive --force
+
     - name: Deploy infrastructure
       run: |
         ./bin/deploy.sh
