@@ -8,7 +8,7 @@ from quiz_app.quiz_app_stack import QuizAppStack
 
 
 app = cdk.App()
-QuizAppStack(app, "QuizAppStack",
+quiz_app_stack = QuizAppStack(app, "QuizAppStack",
     # If you don't specify 'env', this stack will be environment-agnostic.
     # Account/Region-dependent features and context lookups will not work,
     # but a single synthesized template can be deployed anywhere.
@@ -26,6 +26,8 @@ QuizAppStack(app, "QuizAppStack",
     # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
     )
 
-FrontendStack(app, "FrontendStack")
+cdk.Tags.of(quiz_app_stack).add("aws-apn-id", "pc:9yq38ki5jw5mas7jhjthpgveo")
+frontend_stack = FrontendStack(app, "FrontendStack")
+cdk.Tags.of(frontend_stack).add("aws-apn-id", "pc:9yq38ki5jw5mas7jhjthpgveo")
 
 app.synth()
